@@ -1,0 +1,19 @@
+[
+    {
+      "id": "1",
+      "title": "Finish Sprint 2",
+      "description": "Define schema and validators",
+      "dueDate": "2025-10-01T17:00:00Z",
+      "notes": "Check with team before submission",
+      "completed": false
+    },
+    {
+      "id": "2",
+      "title": "Prepare demo",
+      "description": "Walk through API and validator",
+      "dueDate": "2025-10-02T10:00:00Z",
+      "notes": "Use Zoom for demo",
+      "completed": false
+    }
+  ]
+  
