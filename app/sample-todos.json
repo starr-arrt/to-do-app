@@ -1,19 +1,18 @@
 [
-    {
-      "id": "1",
-      "title": "Finish Sprint 2",
-      "description": "Define schema and validators",
-      "dueDate": "2025-10-01T17:00:00Z",
-      "notes": "Check with team before submission",
-      "completed": false
-    },
-    {
-      "id": "2",
-      "title": "Prepare demo",
-      "description": "Walk through API and validator",
-"dueDate": "2025-10-02T10:00:00Z",
-      "notes": "Use Zoom for demo",
-      "completed": false
-    }
-  ]
-  
+  {
+    "id": "1",
+    "title": "Finish Sprint 3",
+    "description": "Implement placeholder interfaces",
+    "dueDate": "2025-10-05T12:00:00Z",
+    "notes": "Demo for team",
+    "completed": false
+  },
+  {
+    "id": "2",
+    "title": "Review PRs",
+    "description": "Check teammates' changes",
+    "dueDate": "2025-10-06T09:00:00Z",
+    "notes": "Prioritize bug fixes",
+    "completed": false
+  }
+]

@@ -1,0 +1,19 @@
+[
+    {
+      "id": "1",
+      "title": "Finish Sprint 3",
+      "description": "Implement placeholder interfaces",
+      "dueDate": "2025-10-05T12:00:00Z",
+      "notes": "Demo for team",
+      "completed": false
+    },
+    {
+      "id": "2",
+      "title": "Review PRs",
+      "description": "Check teammates' changes",
+      "dueDate": "2025-10-06T09:00:00Z",
+      "notes": "Prioritize bug fixes",
+      "completed": false
+    }
+  ]
+  
