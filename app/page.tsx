@@ -10,10 +10,11 @@ export default function Page() {
   // ------------------ STATE ------------------
   const [darkMode, setDarkMode] = useState(false);
   const [tasks, setTasks] = useState<
-    { id: number; text: string; date: Date | null }[]
+    { id: number; text: string; date: Date | null; notes?: string }[]
   >([]);
   const [taskText, setTaskText] = useState("");
   const [taskDate, setTaskDate] = useState<Date | null>(null);
+  const [taskNotes, setTaskNotes] = useState("");
   const [editingTaskId, setEditingTaskId] = useState<number | null>(null);
 
   // ------------------ LOAD TASKS ------------------
@@ -22,11 +23,12 @@ export default function Page() {
     if (savedTasks) {
       const parsed = JSON.parse(savedTasks);
       const cleaned = (parsed || [])
-        .filter((t: any) => t && t.text && t.text.trim() !== "") // remove empties
+        .filter((t: any) => t && t.text && t.text.trim() !== "")
         .map((t: any) => ({
           id: typeof t.id === "number" ? t.id : Number(t.id),
           text: t.text,
           date: t.date ? new Date(t.date) : null,
+          notes: t.notes || "",
         }));
       setTasks(cleaned);
     }
@@ -45,7 +47,9 @@ export default function Page() {
       // Update existing
       setTasks((prev) =>
         prev.map((t) =>
-          t.id === editingTaskId ? { ...t, text: taskText, date: taskDate } : t
+          t.id === editingTaskId
+            ? { ...t, text: taskText, date: taskDate, notes: taskNotes }
+            : t
         )
       );
       setEditingTaskId(null);
@@ -53,21 +57,28 @@ export default function Page() {
       // Add new
       setTasks((prev) => [
         ...prev,
-        { id: Date.now(), text: taskText, date: taskDate },
+        { id: Date.now(), text: taskText, date: taskDate, notes: taskNotes },
       ]);
     }
 
     setTaskText("");
     setTaskDate(null);
+    setTaskNotes("");
   };
 
   const deleteTask = (id: number) => {
     setTasks((prev) => prev.filter((t) => t.id !== id));
   };
 
-  const startEditing = (task: { id: number; text: string; date: Date | null }) => {
+  const startEditing = (task: {
+    id: number;
+    text: string;
+    date: Date | null;
+    notes?: string;
+  }) => {
     setTaskText(task.text);
     setTaskDate(task.date);
+    setTaskNotes(task.notes || "");
     setEditingTaskId(task.id);
   };
 
@@ -77,7 +88,9 @@ export default function Page() {
 
   return (
     <div
-      className={`${darkMode ? darkGradient : lightGradient} min-h-screen flex flex-col items-center py-10 px-4 transition-colors duration-500`}
+      className={`${
+        darkMode ? darkGradient : lightGradient
+      } min-h-screen flex flex-col items-center py-10 px-4 transition-colors duration-500`}
     >
       {/* Background floating gradients (non-interactive) */}
       <motion.div
@@ -146,6 +159,17 @@ export default function Page() {
                 : "bg-gray-100 border-gray-300 text-gray-900 placeholder-gray-500"
             }`}
           />
+          <textarea
+            value={taskNotes}
+            onChange={(e) => setTaskNotes(e.target.value)}
+            placeholder="Add notes (optional)..."
+            rows={3}
+            className={`w-full p-3 rounded-lg border focus:outline-none resize-none ${
+              darkMode
+                ? "bg-gray-900 border-gray-700 text-gray-100 placeholder-gray-400"
+                : "bg-gray-100 border-gray-300 text-gray-900 placeholder-gray-500"
+            }`}
+          />
           <button
             onClick={addOrUpdateTask}
             className={`flex items-center justify-center gap-2 px-5 py-3 rounded-xl font-semibold shadow-lg transition ${
@@ -162,44 +186,59 @@ export default function Page() {
         {/* Task List */}
         <div className="w-full mt-8 space-y-4">
           {tasks.length === 0 ? (
-            <p className={`text-center ${darkMode ? "text-gray-400" : "text-gray-500"}`}>
+            <p
+              className={`text-center ${
+                darkMode ? "text-gray-400" : "text-gray-500"
+              }`}
+            >
               No tasks yet. Add one above!
             </p>
           ) : (
             tasks.map((task) => (
               <motion.div
                 key={task.id}
-                className={`flex items-center justify-between p-4 rounded-xl shadow-md ${
+                className={`flex flex-col p-4 rounded-xl shadow-md ${
                   darkMode ? "bg-gray-800 text-gray-100" : "bg-white text-gray-800"
                 }`}
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
               >
-                <div>
-                  <p className="font-medium">{task.text}</p>
-                  {task.date && (
-                    <p className="text-sm text-gray-400">
-                      {task.date.toLocaleString()}
-                    </p>
-                  )}
-                </div>
-                <div className="flex gap-3">
-                  <button
-                    onClick={() => startEditing(task)}
-                    className="p-2 rounded-md bg-transparent hover:bg-blue-50 dark:hover:bg-blue-900 transition cursor-pointer"
-                    title="Edit task"
-                    aria-label="Edit task"
-                  >
-                    <Edit2 className="w-5 h-5 text-blue-500" />
-                  </button>
-                  <button
-                    onClick={() => deleteTask(task.id)}
-                    className="p-2 rounded-md bg-transparent hover:bg-red-50 dark:hover:bg-red-900 transition cursor-pointer"
-                    title="Delete task"
-                    aria-label="Delete task"
-                  >
-                    <Trash2 className="w-5 h-5 text-red-500" />
-                  </button>
+                <div className="flex justify-between items-start">
+                  <div>
+                    <p className="font-medium">{task.text}</p>
+                    {task.date && (
+                      <p className="text-sm text-gray-400">
+                        {task.date.toLocaleString()}
+                      </p>
+                    )}
+                    {task.notes && (
+                      <p
+                        className={`mt-2 text-sm italic ${
+                          darkMode ? "text-gray-300" : "text-gray-600"
+                        }`}
+                      >
+                        {task.notes}
+                      </p>
+                    )}
+                  </div>
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => startEditing(task)}
+                      className="p-2 rounded-md bg-transparent hover:bg-blue-50 dark:hover:bg-blue-900 transition cursor-pointer"
+                      title="Edit task"
+                      aria-label="Edit task"
+                    >
+                      <Edit2 className="w-5 h-5 text-blue-500" />
+                    </button>
+                    <button
+                      onClick={() => deleteTask(task.id)}
+                      className="p-2 rounded-md bg-transparent hover:bg-red-50 dark:hover:bg-red-900 transition cursor-pointer"
+                      title="Delete task"
+                      aria-label="Delete task"
+                    >
+                      <Trash2 className="w-5 h-5 text-red-500" />
+                    </button>
+                  </div>
                 </div>
               </motion.div>
             ))
