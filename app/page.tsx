@@ -1,250 +1,287 @@
 "use client";
-
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
+import { motion } from "framer-motion";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
-import { motion } from "framer-motion";
-import { Sun, Moon, Plus, Edit2, Trash2 } from "lucide-react";
+import { Moon, Sun, Edit, Trash2, PlusCircle } from "lucide-react";
+
+interface Task {
+  id: number;
+  name: string;
+  deadline: Date;
+  note?: string;
+  notified?: boolean;
+}
 
 export default function Page() {
-  // ------------------ STATE ------------------
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [taskName, setTaskName] = useState("");
+  const [deadline, setDeadline] = useState<Date | null>(null);
+  const [note, setNote] = useState("");
   const [darkMode, setDarkMode] = useState(false);
-  const [tasks, setTasks] = useState<
-    { id: number; text: string; date: Date | null; notes?: string }[]
-  >([]);
-  const [taskText, setTaskText] = useState("");
-  const [taskDate, setTaskDate] = useState<Date | null>(null);
-  const [taskNotes, setTaskNotes] = useState("");
-  const [editingTaskId, setEditingTaskId] = useState<number | null>(null);
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
 
-  // ------------------ LOAD TASKS ------------------
+  // ---------------- Load Saved Tasks + Theme ----------------
   useEffect(() => {
     const savedTasks = localStorage.getItem("tasks");
+    const savedTheme = localStorage.getItem("theme");
+
     if (savedTasks) {
-      const parsed = JSON.parse(savedTasks);
-      const cleaned = (parsed || [])
-        .filter((t: any) => t && t.text && t.text.trim() !== "")
-        .map((t: any) => ({
-          id: typeof t.id === "number" ? t.id : Number(t.id),
-          text: t.text,
-          date: t.date ? new Date(t.date) : null,
-          notes: t.notes || "",
-        }));
-      setTasks(cleaned);
+      const parsed = JSON.parse(savedTasks).map((t: any) => ({
+        ...t,
+        deadline: new Date(t.deadline),
+      }));
+      setTasks(parsed);
+    }
+    if (savedTheme === "dark") setDarkMode(true);
+
+    // Ask for Notification Permission
+    if ("Notification" in window) {
+      Notification.requestPermission().then((permission) => {
+        if (permission !== "granted") {
+          console.warn("Notifications permission not granted");
+        }
+      });
+    }
+
+    // ✅ Register Service Worker for notifications
+    if ("serviceWorker" in navigator) {
+      const swPath = `${process.env.NEXT_PUBLIC_BASE_PATH || ""}/sw.js`;
+      navigator.serviceWorker
+        .register(swPath, { scope: "/" })
+        .then(() => console.log("✅ Service Worker registered successfully"))
+        .catch((err) => console.error("❌ Service Worker registration failed:", err));
     }
   }, []);
 
-  // ------------------ SAVE TASKS ------------------
+  // ---------------- Save Tasks + Theme ----------------
   useEffect(() => {
     localStorage.setItem("tasks", JSON.stringify(tasks));
   }, [tasks]);
 
-  // ------------------ ADD / UPDATE TASK ------------------
-  const addOrUpdateTask = () => {
-    if (!taskText.trim()) return;
+  useEffect(() => {
+    localStorage.setItem("theme", darkMode ? "dark" : "light");
+  }, [darkMode]);
 
-    if (editingTaskId !== null) {
-      // Update existing
+  // ---------------- Notification System ----------------
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const now = new Date();
+
+      setTasks((prevTasks) =>
+        prevTasks.map((task) => {
+          const diff = (task.deadline.getTime() - now.getTime()) / 60000;
+
+          if (
+            diff > 4 &&
+            diff <= 5 &&
+            !task.notified &&
+            Notification.permission === "granted"
+          ) {
+            new Notification("⏰ Task Reminder", {
+              body: task.note
+                ? `Your task "${task.name}" is due in 5 minutes.\nNote: ${task.note}`
+                : `Your task "${task.name}" is due in 5 minutes!`,
+              icon: "/favicon.ico",
+            });
+            return { ...task, notified: true };
+          }
+
+          return task;
+        })
+      );
+    }, 60000); // check every minute
+
+    return () => clearInterval(interval);
+  }, []);
+
+  // ---------------- Add / Edit / Delete ----------------
+  const handleAddTask = () => {
+    if (!taskName || !deadline)
+      return alert("Please enter a task name and select a deadline.");
+
+    if (editingTask) {
       setTasks((prev) =>
         prev.map((t) =>
-          t.id === editingTaskId
-            ? { ...t, text: taskText, date: taskDate, notes: taskNotes }
+          t.id === editingTask.id
+            ? { ...t, name: taskName, deadline, note, notified: false }
             : t
         )
       );
-      setEditingTaskId(null);
+      setEditingTask(null);
     } else {
-      // Add new
       setTasks((prev) => [
         ...prev,
-        { id: Date.now(), text: taskText, date: taskDate, notes: taskNotes },
+        { id: Date.now(), name: taskName, deadline, note, notified: false },
       ]);
     }
 
-    setTaskText("");
-    setTaskDate(null);
-    setTaskNotes("");
+    setTaskName("");
+    setDeadline(null);
+    setNote("");
   };
 
-  const deleteTask = (id: number) => {
-    setTasks((prev) => prev.filter((t) => t.id !== id));
+  const handleEdit = (task: Task) => {
+    setEditingTask(task);
+    setTaskName(task.name);
+    setDeadline(new Date(task.deadline));
+    setNote(task.note || "");
   };
 
-  const startEditing = (task: {
-    id: number;
-    text: string;
-    date: Date | null;
-    notes?: string;
-  }) => {
-    setTaskText(task.text);
-    setTaskDate(task.date);
-    setTaskNotes(task.notes || "");
-    setEditingTaskId(task.id);
+  const handleDelete = (id: number) => {
+    if (confirm("Are you sure you want to delete this task?")) {
+      setTasks(tasks.filter((t) => t.id !== id));
+    }
   };
 
-  // ------------------ THEMES ------------------
-  const lightGradient = "bg-gradient-to-br from-gray-100 via-white to-gray-200";
-  const darkGradient = "bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900";
+  // ---------------- UI THEMES ----------------
+  const bgGradient = darkMode
+    ? "bg-gradient-to-br from-gray-900 via-gray-800 to-slate-700"
+    : "bg-gradient-to-br from-slate-50 via-gray-100 to-gray-200";
+
+  const headerTextColor = darkMode ? "text-white" : "text-gray-900";
 
   return (
     <div
-      className={`${
-        darkMode ? darkGradient : lightGradient
-      } min-h-screen flex flex-col items-center py-10 px-4 transition-colors duration-500`}
+      className={`min-h-screen transition-colors duration-700 ${bgGradient} flex flex-col items-center py-12`}
     >
-      {/* Background floating gradients (non-interactive) */}
+      {/* Floating gradient orbs */}
       <motion.div
-        className="absolute w-72 h-72 rounded-full bg-purple-400/20 blur-3xl pointer-events-none"
-        animate={{ y: [0, 20, 0], x: [0, -20, 0] }}
-        transition={{ repeat: Infinity, duration: 8 }}
+        className="absolute w-80 h-80 bg-purple-400/20 rounded-full blur-3xl pointer-events-none"
+        animate={{ y: [0, 30, 0], x: [0, -20, 0] }}
+        transition={{ repeat: Infinity, duration: 10 }}
         style={{ top: "10%", left: "5%" }}
       />
       <motion.div
-        className="absolute w-96 h-96 rounded-full bg-blue-400/20 blur-3xl pointer-events-none"
-        animate={{ y: [0, -30, 0], x: [0, 30, 0] }}
-        transition={{ repeat: Infinity, duration: 12 }}
+        className="absolute w-96 h-96 bg-blue-400/20 rounded-full blur-3xl pointer-events-none"
+        animate={{ y: [0, -25, 0], x: [0, 25, 0] }}
+        transition={{ repeat: Infinity, duration: 14 }}
         style={{ bottom: "15%", right: "10%" }}
       />
 
-      {/* CONTENT: ensure it's above the blobs */}
-      <div className="relative z-10 w-full max-w-2xl mx-auto py-6">
+      {/* Card Container */}
+      <motion.div
+        initial={{ opacity: 0, y: 30 }}
+        animate={{ opacity: 1, y: 0 }}
+        className={`relative z-10 w-full max-w-xl ${
+          darkMode ? "bg-gray-800/70" : "bg-white/70"
+        } backdrop-blur-md rounded-2xl shadow-2xl p-8 border border-white/20`}
+      >
         {/* Header */}
-        <div className="flex items-center justify-between w-full mb-8">
+        <div className="flex justify-between items-center mb-8">
           <h1
-            className={`text-4xl font-bold tracking-tight ${
-              darkMode ? "text-gray-100" : "text-gray-800"
-            }`}
+            className={`text-3xl font-semibold tracking-wide ${headerTextColor}`}
           >
             Task Manager
           </h1>
           <button
             onClick={() => setDarkMode(!darkMode)}
-            className="p-2 rounded-full border shadow-sm hover:scale-105 transition"
-            aria-label="Toggle theme"
+            className="p-2 bg-white/30 hover:bg-white/40 rounded-full transition"
+            title="Toggle Theme"
           >
-            {darkMode ? (
-              <Sun className="w-6 h-6 text-yellow-300" />
-            ) : (
-              <Moon className="w-6 h-6 text-gray-700" />
-            )}
+            {darkMode ? <Sun size={20} color="yellow" /> : <Moon size={20} />}
           </button>
         </div>
 
-        {/* Task Input */}
-        <div
-          className={`w-full p-6 rounded-2xl shadow-lg flex flex-col gap-4 ${
-            darkMode ? "bg-gray-800/70 text-gray-100" : "bg-white/70 text-gray-900"
-          }`}
-        >
+        {/* Input Section */}
+        <div className="flex flex-col gap-4 mb-6">
           <input
             type="text"
-            value={taskText}
-            onChange={(e) => setTaskText(e.target.value)}
             placeholder="Enter task name..."
-            className={`w-full p-3 rounded-lg border focus:outline-none ${
-              darkMode
-                ? "bg-gray-900 border-gray-700 text-gray-100 placeholder-gray-400"
-                : "bg-gray-100 border-gray-300 text-gray-900 placeholder-gray-500"
-            }`}
+            value={taskName}
+            onChange={(e) => setTaskName(e.target.value)}
+            className="p-3 rounded-lg bg-white/80 w-full text-gray-900 placeholder-gray-500 outline-none"
           />
           <DatePicker
-            selected={taskDate}
-            onChange={(date) => setTaskDate(date)}
+            selected={deadline}
+            onChange={(date) => setDeadline(date)}
             showTimeSelect
-            dateFormat="Pp"
-            placeholderText="Select due date & time..."
-            className={`w-full p-3 rounded-lg border focus:outline-none ${
-              darkMode
-                ? "bg-gray-900 border-gray-700 text-gray-100 placeholder-gray-400"
-                : "bg-gray-100 border-gray-300 text-gray-900 placeholder-gray-500"
-            }`}
+            timeFormat="HH:mm"
+            timeIntervals={5}
+            dateFormat="MMMM d, yyyy h:mm aa"
+            placeholderText="Select deadline..."
+            className="p-3 rounded-lg bg-white/80 w-full text-gray-900 placeholder-gray-500 outline-none"
           />
           <textarea
-            value={taskNotes}
-            onChange={(e) => setTaskNotes(e.target.value)}
-            placeholder="Add notes (optional)..."
+            placeholder="Add a note (optional)..."
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            className="p-3 rounded-lg bg-white/80 w-full text-gray-900 placeholder-gray-500 outline-none"
             rows={3}
-            className={`w-full p-3 rounded-lg border focus:outline-none resize-none ${
-              darkMode
-                ? "bg-gray-900 border-gray-700 text-gray-100 placeholder-gray-400"
-                : "bg-gray-100 border-gray-300 text-gray-900 placeholder-gray-500"
-            }`}
-          />
+          ></textarea>
           <button
-            onClick={addOrUpdateTask}
-            className={`flex items-center justify-center gap-2 px-5 py-3 rounded-xl font-semibold shadow-lg transition ${
-              darkMode
-                ? "bg-purple-600 hover:bg-purple-500 text-white"
-                : "bg-blue-600 hover:bg-blue-500 text-white"
-            }`}
+            onClick={handleAddTask}
+            className="flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg py-3 transition font-medium shadow-md"
           >
-            <Plus className="w-5 h-5" />
-            {editingTaskId ? "Update Task" : "Add Task"}
+            <PlusCircle size={18} />
+            {editingTask ? "Update Task" : "Add Task"}
           </button>
         </div>
 
         {/* Task List */}
-        <div className="w-full mt-8 space-y-4">
+        <div className="space-y-4">
           {tasks.length === 0 ? (
             <p
-              className={`text-center ${
-                darkMode ? "text-gray-400" : "text-gray-500"
+              className={`text-center italic ${
+                darkMode ? "text-gray-400" : "text-gray-600"
               }`}
             >
-              No tasks yet. Add one above!
+              No tasks yet. Add one to get started!
             </p>
           ) : (
-            tasks.map((task) => (
-              <motion.div
-                key={task.id}
-                className={`flex flex-col p-4 rounded-xl shadow-md ${
-                  darkMode ? "bg-gray-800 text-gray-100" : "bg-white text-gray-800"
-                }`}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-              >
-                <div className="flex justify-between items-start">
+            tasks.map((task) => {
+              const now = new Date();
+              const timeLeft = (task.deadline.getTime() - now.getTime()) / 60000;
+              const dueSoon = timeLeft > 0 && timeLeft < 5;
+              const overdue = timeLeft < 0;
+
+              return (
+                <motion.div
+                  key={task.id}
+                  className={`flex justify-between items-start p-4 rounded-lg transition-all ${
+                    dueSoon
+                      ? "bg-yellow-200/90 border border-yellow-400"
+                      : overdue
+                      ? "bg-red-200/90 border border-red-400"
+                      : "bg-white/80 border border-gray-300"
+                  } shadow-md`}
+                  whileHover={{ scale: 1.02 }}
+                >
                   <div>
-                    <p className="font-medium">{task.text}</p>
-                    {task.date && (
-                      <p className="text-sm text-gray-400">
-                        {task.date.toLocaleString()}
-                      </p>
-                    )}
-                    {task.notes && (
-                      <p
-                        className={`mt-2 text-sm italic ${
-                          darkMode ? "text-gray-300" : "text-gray-600"
-                        }`}
-                      >
-                        {task.notes}
+                    <h3 className="font-semibold text-gray-900">{task.name}</h3>
+                    <p className="text-sm text-gray-700">
+                      Deadline:{" "}
+                      {task.deadline.toLocaleString([], {
+                        dateStyle: "medium",
+                        timeStyle: "short",
+                      })}
+                    </p>
+                    {task.note && (
+                      <p className="text-sm mt-2 text-gray-800 italic">
+                        Note: {task.note}
                       </p>
                     )}
                   </div>
-                  <div className="flex gap-3">
+                  <div className="flex gap-3 mt-1">
                     <button
-                      onClick={() => startEditing(task)}
-                      className="p-2 rounded-md bg-transparent hover:bg-blue-50 dark:hover:bg-blue-900 transition cursor-pointer"
-                      title="Edit task"
-                      aria-label="Edit task"
+                      onClick={() => handleEdit(task)}
+                      className="text-blue-600 hover:text-blue-800"
                     >
-                      <Edit2 className="w-5 h-5 text-blue-500" />
+                      <Edit size={18} />
                     </button>
                     <button
-                      onClick={() => deleteTask(task.id)}
-                      className="p-2 rounded-md bg-transparent hover:bg-red-50 dark:hover:bg-red-900 transition cursor-pointer"
-                      title="Delete task"
-                      aria-label="Delete task"
+                      onClick={() => handleDelete(task.id)}
+                      className="text-red-600 hover:text-red-800"
                     >
-                      <Trash2 className="w-5 h-5 text-red-500" />
+                      <Trash2 size={18} />
                     </button>
                   </div>
-                </div>
-              </motion.div>
-            ))
+                </motion.div>
+              );
+            })
           )}
         </div>
-      </div>
+      </motion.div>
     </div>
   );
 }
