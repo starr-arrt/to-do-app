@@ -5,6 +5,7 @@ import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import Calendar from "react-calendar";
 import "react-calendar/dist/Calendar.css";
+import ReactMarkdown from "react-markdown";
 import {
   Moon,
   Sun,
@@ -16,6 +17,8 @@ import {
   AlertCircle,
   XCircle,
   CheckCircle2,
+  Video,
+  ExternalLink,
 } from "lucide-react";
 
 interface Task {
@@ -23,6 +26,7 @@ interface Task {
   name: string;
   deadline: Date;
   note?: string;
+  video_link?: string; // ✅ new field
   notified?: boolean;
 }
 
@@ -31,6 +35,7 @@ export default function Page() {
   const [taskName, setTaskName] = useState("");
   const [deadline, setDeadline] = useState<Date | null>(null);
   const [note, setNote] = useState("");
+  const [videoLink, setVideoLink] = useState("");
   const [darkMode, setDarkMode] = useState(false);
   const [calendarView, setCalendarView] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
@@ -95,11 +100,17 @@ export default function Page() {
   // ---------------- CRUD ----------------
   const handleAddTask = () => {
     if (!taskName || !deadline) return alert("Please enter a task name and deadline.");
+
+    if (videoLink && !isValidURL(videoLink)) {
+      alert("Please enter a valid video link (e.g., https://meet.google.com/xyz).");
+      return;
+    }
+
     if (editingTask) {
       setTasks((prev) =>
         prev.map((t) =>
           t.id === editingTask.id
-            ? { ...t, name: taskName, deadline, note, notified: false }
+            ? { ...t, name: taskName, deadline, note, video_link: videoLink, notified: false }
             : t
         )
       );
@@ -107,18 +118,16 @@ export default function Page() {
     } else {
       setTasks((prev) => [
         ...prev,
-        { id: Date.now(), name: taskName, deadline, note, notified: false },
+        { id: Date.now(), name: taskName, deadline, note, video_link: videoLink, notified: false },
       ]);
     }
     setTaskName("");
     setDeadline(null);
     setNote("");
+    setVideoLink("");
   };
 
-  const confirmDelete = (id: number) => {
-    setDeleteConfirm(id);
-  };
-
+  const confirmDelete = (id: number) => setDeleteConfirm(id);
   const handleDelete = (id: number) => {
     setTasks(tasks.filter((t) => t.id !== id));
     setDeleteConfirm(null);
@@ -129,6 +138,16 @@ export default function Page() {
     setTaskName(task.name);
     setDeadline(new Date(task.deadline));
     setNote(task.note || "");
+    setVideoLink(task.video_link || "");
+  };
+
+  const isValidURL = (url: string) => {
+    try {
+      new URL(url);
+      return true;
+    } catch {
+      return false;
+    }
   };
 
   // ---------------- Calendar ----------------
@@ -170,7 +189,6 @@ export default function Page() {
     }
   `;
 
-  // ---------------- UI ----------------
   const bgGradient = darkMode
     ? "bg-gradient-to-br from-gray-900 via-gray-800 to-slate-700"
     : "bg-gradient-to-br from-slate-50 via-gray-100 to-gray-200";
@@ -181,20 +199,6 @@ export default function Page() {
     <div className={`min-h-screen transition-colors duration-700 ${bgGradient} flex flex-col items-center py-12`}>
       <style>{calendarStyle}</style>
 
-      {/* Floating Lights */}
-      <motion.div
-        className="absolute w-80 h-80 bg-purple-400/20 rounded-full blur-3xl pointer-events-none"
-        animate={{ y: [0, 30, 0], x: [0, -20, 0] }}
-        transition={{ repeat: Infinity, duration: 10 }}
-        style={{ top: "10%", left: "5%" }}
-      />
-      <motion.div
-        className="absolute w-96 h-96 bg-blue-400/20 rounded-full blur-3xl pointer-events-none"
-        animate={{ y: [0, -25, 0], x: [0, 25, 0] }}
-        transition={{ repeat: Infinity, duration: 14 }}
-        style={{ bottom: "15%", right: "10%" }}
-      />
-
       {loading ? (
         <div className="flex flex-col justify-center items-center mt-48 space-y-4">
           <motion.div
@@ -204,10 +208,7 @@ export default function Page() {
           >
             <motion.div
               className="absolute inset-0 rounded-full bg-gradient-to-tr from-indigo-400 via-sky-400 to-purple-400 blur-xl opacity-70"
-              animate={{
-                scale: [1, 1.1, 1],
-                opacity: [0.7, 1, 0.7],
-              }}
+              animate={{ scale: [1, 1.1, 1], opacity: [0.7, 1, 0.7] }}
               transition={{ repeat: Infinity, duration: 1.8 }}
             />
           </motion.div>
@@ -279,12 +280,19 @@ export default function Page() {
                     className="p-3 rounded-lg bg-white/80 w-full text-gray-900 placeholder-gray-500 outline-none"
                   />
                   <textarea
-                    placeholder="Add a note (optional)..."
+                    placeholder="Add an extended note..."
                     value={note}
                     onChange={(e) => setNote(e.target.value)}
                     className="p-3 rounded-lg bg-white/80 w-full text-gray-900 placeholder-gray-500 outline-none"
-                    rows={3}
+                    rows={4}
                   ></textarea>
+                  <input
+                    type="text"
+                    placeholder="Add a video call link (optional)..."
+                    value={videoLink}
+                    onChange={(e) => setVideoLink(e.target.value)}
+                    className="p-3 rounded-lg bg-white/80 w-full text-gray-900 placeholder-gray-500 outline-none"
+                  />
                   <button
                     onClick={handleAddTask}
                     className="flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg py-3 transition font-medium shadow-md"
@@ -327,21 +335,27 @@ export default function Page() {
                                 timeStyle: "short",
                               })}
                             </p>
+                            {task.video_link && (
+                              <a
+                                href={task.video_link}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex items-center gap-1 text-indigo-600 hover:underline mt-1 text-sm"
+                              >
+                                <Video size={16} /> Join Call <ExternalLink size={12} />
+                              </a>
+                            )}
                             {task.note && (
-                              <p className="text-sm mt-2 text-gray-800 italic">Note: {task.note}</p>
+                              <div className="prose max-w-none mt-2 text-sm text-gray-800">
+                                <ReactMarkdown>{task.note}</ReactMarkdown>
+                              </div>
                             )}
                           </div>
                           <div className="flex gap-3 mt-1">
-                            <button
-                              onClick={() => handleEdit(task)}
-                              className="text-blue-600 hover:text-blue-800"
-                            >
+                            <button onClick={() => handleEdit(task)} className="text-blue-600 hover:text-blue-800">
                               <Edit size={18} />
                             </button>
-                            <button
-                              onClick={() => confirmDelete(task.id)}
-                              className="text-red-600 hover:text-red-800"
-                            >
+                            <button onClick={() => confirmDelete(task.id)} className="text-red-600 hover:text-red-800">
                               <Trash2 size={18} />
                             </button>
                           </div>
@@ -375,7 +389,21 @@ export default function Page() {
                           <span className="text-sm opacity-80">
                             {t.deadline.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                           </span>
-                          {t.note && <p className="text-sm mt-1 italic opacity-70">{t.note}</p>}
+                          {t.video_link && (
+                            <a
+                              href={t.video_link}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex items-center gap-1 text-indigo-400 hover:underline mt-1 text-sm"
+                            >
+                              <Video size={14} /> Join Call
+                            </a>
+                          )}
+                          {t.note && (
+                            <div className="prose max-w-none text-sm mt-1 opacity-90">
+                              <ReactMarkdown>{t.note}</ReactMarkdown>
+                            </div>
+                          )}
                         </li>
                       ))}
                     </ul>
