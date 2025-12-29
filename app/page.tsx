@@ -452,4 +452,18 @@ export default function Page() {
       </AnimatePresence>
     </div>
   );
+    // ---------------- REMINDER SYNC (NEW) ----------------
+
+  // Convert tasks → simple reminder objects
+  const getReminderData = () => {
+    return tasks.map((t) => ({
+      id: t.id,
+      title: t.name,
+      date: t.deadline.toISOString(),
+      note: t.note || "",
+      video_link: t.video_link || "",
+    }));
+  };
+
+
 }
